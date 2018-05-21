@@ -26,10 +26,6 @@ module GraphQL
       selection.name == 'edges'
     end
 
-    def self.using_nodes_pagination?(selection)
-      selection.name == 'nodes'
-    end
-
     def self.map_relay_pagination_depencies(class_name, selection, dependencies)
       node_selection = selection.selections.find { |sel| sel.name == 'node' }
 
@@ -53,19 +49,18 @@ module GraphQL
           next
         end
 
-        if using_nodes_pagination?(selection)
-          map_dependencies(class_name, selection, dependencies)
-          next
-        end
-
         if has_reflection_with_name?(class_name, name)
           begin
             current_class_name = selection.name.singularize.classify.constantize
             dependencies[name] = map_dependencies(current_class_name, selection)
           rescue NameError
             selection_name = class_name.reflections.with_indifferent_access[selection.name].options[:class_name]
-            current_class_name = selection_name.singularize.classify.constantize
-            dependencies[selection.name.to_sym] = map_dependencies(current_class_name, selection)
+            begin
+              current_class_name = selection_name.singularize.classify.constantize
+              dependencies[selection.name.to_sym] = get_implied_includes(current_class_name, selection)
+            rescue
+              # Polymorphic association
+            end
             next
           end
         end
